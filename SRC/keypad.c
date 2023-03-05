@@ -10,7 +10,7 @@ static const GPIO_TypeDef *row_port[ROW_COUNT] = {
     GPIOC
 };
 static const uint8_t row_pin[ROW_COUNT] = {
-    GPIO_Pin_1,
+    GPIO_Pin_0,
     GPIO_Pin_3,
     GPIO_Pin_5,
     GPIO_Pin_7
@@ -20,16 +20,15 @@ static const GPIO_TypeDef *col_port[COL_COUNT] = {
     GPIOD,
     GPIOC,
     GPIOC,
-    GPIOC
+    GPIOD
 };
 static const uint8_t col_pin[COL_COUNT] = {
     GPIO_Pin_2,
     GPIO_Pin_6,
     GPIO_Pin_4,
-    GPIO_Pin_2
+    GPIO_Pin_0
 };
 #define DEBOUNCE_TIME_MS 10
-#define MIN_SCAN_TIME_MS 20
 #define MAX_SCAN_TIME_MS 100
 #define U8_NOT_FOUND 255
 
@@ -137,95 +136,24 @@ static uint8_t scan_col() {
     return val;
 }
 
-
-void EXTI7_0_IRQHandler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
-void EXTI7_0_IRQHandler(void)
-{
-    // printf("EXTI Wake_up\r\n");
-    EXTI_ClearITPendingBit(
-        EXTI_Line0 |
-        EXTI_Line1 |
-        EXTI_Line2 |
-        EXTI_Line3 |
-        EXTI_Line4 |
-        EXTI_Line5 |
-        EXTI_Line6 |
-        EXTI_Line7
-    );
-}
-
 void kbd_init(void) {
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD, ENABLE);
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR, ENABLE);
-    GPIO_EXTILineConfig(GPIO_PortSourceGPIOC, GPIO_PinSource1);
-    GPIO_EXTILineConfig(GPIO_PortSourceGPIOC, GPIO_PinSource3);
-    GPIO_EXTILineConfig(GPIO_PortSourceGPIOC, GPIO_PinSource5);
-    GPIO_EXTILineConfig(GPIO_PortSourceGPIOC, GPIO_PinSource7);
 }
 
-void kbd_try_sleep_until_next_key_press(void) {
-    int32_t awu_value = 0;
-    EXTI_InitTypeDef EXTI_InitStructure = {0};
-    if (pending < 0 && all_key_released) {
-        // long sleep
-        awu_value = MAX_SCAN_TIME_MS;
-        /*所有的 GPIO 口都可以被配置外部中断输入通道,
-        但一个外部中断输入通道最多只能映射到一个
-        GPIO 引脚上,且外部中断通道的序号必须和 GPIO 端口的位号一致,比如 PA1(或 PC1、PD1 等)只
-        能映射到 EXTI1 上, 且 EXTI1 只能接受 PA1、 PC1 或 PD1 等其中之一的映射, 两方都是一对一的关系。*/
-        // interupt on ROW
-        for (uint8_t i = 0; i < COL_COUNT; i++) {
-            init_output_push_pull(col_port[i], col_pin[i]);
-            write_pin(col_port[i], col_pin[i], Bit_RESET);
-        }
-        for (uint8_t i = 0; i < ROW_COUNT; i++) {
-            init_input_pull_up(row_port[i], row_pin[i]);
-        }
-        EXTI_InitStructure.EXTI_Line = EXTI_Line1 | EXTI_Line3 | EXTI_Line5 | EXTI_Line7;
-        EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-        EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
-        EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-        EXTI_Init(&EXTI_InitStructure);
-        NVIC_InitTypeDef NVIC_InitStructure = {0};
-        NVIC_InitStructure.NVIC_IRQChannel = EXTI7_0_IRQn;
-        NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
-        NVIC_InitStructure.NVIC_IRQChannelSubPriority = 2;
-        NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-        NVIC_Init(&NVIC_InitStructure);
-        // pause
-        PWR_EnterSTANDBYMode(PWR_STANDBYEntry_WFI);
-        USART_Printf_Init(115200);
-        // resume
-        NVIC_InitStructure.NVIC_IRQChannelCmd = DISABLE;
-        NVIC_Init(&NVIC_InitStructure);
-    } else {
-        awu_value = MIN_SCAN_TIME_MS;
-        // short sleep
-        EXTI_InitStructure.EXTI_Line = EXTI_Line9;
-        EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Event;
-        EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
-        EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-        EXTI_Init(&EXTI_InitStructure);
-        RCC_LSICmd(ENABLE);
-        while(RCC_GetFlagStatus(RCC_FLAG_LSIRDY) == RESET);
-        PWR_AWU_SetPrescaler(PWR_AWU_Prescaler_256); // 500hz
-        awu_value = awu_value * 500 / 1000;
-        awu_value = (awu_value > 0x3F) ? 0x3F : awu_value;
-        awu_value = (awu_value < 0) ? 0 : awu_value;
-        PWR_AWU_SetWindowValue(awu_value);
-        PWR_AutoWakeUpCmd(ENABLE);
-        // pause
-        PWR_EnterSTANDBYMode(PWR_STANDBYEntry_WFE);
-        pending = ticks_add(pending, -awu_value); // skip systick
-        USART_Printf_Init(115200);
-        // resume
-        PWR_AutoWakeUpCmd(DISABLE);
-        RCC_LSICmd(DISABLE);
+uint8_t _kbd_can_long_sleep(void) {
+    return pending < 0 && all_key_released;
+}
+
+void _kbd_config_pins_for_wake_up(void) {
+    // interupt on ROW
+    for (uint8_t i = 0; i < COL_COUNT; i++) {
+        init_output_push_pull(col_port[i], col_pin[i]);
+        write_pin(col_port[i], col_pin[i], Bit_RESET);
     }
-    EXTI_InitStructure.EXTI_LineCmd = DISABLE;
-    EXTI_Init(&EXTI_InitStructure);
+    for (uint8_t i = 0; i < ROW_COUNT; i++) {
+        init_input_pull_up(row_port[i], row_pin[i]);
+    }
 }
 
 uint16_t kbd_scan(void) {

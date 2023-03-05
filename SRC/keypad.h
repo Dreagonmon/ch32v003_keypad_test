@@ -6,5 +6,6 @@
 
 
 void kbd_init(void);
-void kbd_try_sleep_until_next_key_press(void);
+uint8_t _kbd_can_long_sleep(void);
+void _kbd_config_pins_for_wake_up(void);
 uint16_t kbd_scan(void);

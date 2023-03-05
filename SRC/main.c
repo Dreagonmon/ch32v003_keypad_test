@@ -1,6 +1,7 @@
 #include "debug.h"
 #include "keypad.h"
 #include "sysclock.h"
+#include "interrupt.h"
 
 int main(void)
 {
@@ -10,8 +11,11 @@ int main(void)
     printf("SystemClk:%d\r\n", SystemCoreClock);
 
     printf("======== Keypad Toggle TEST ========\r\n");
-    kbd_init();
     systick_init();
+    int_init();
+    kbd_init();
+
+    uint8_t sleep_disabled = 2;
 
     while(1)
     {
@@ -26,10 +30,16 @@ int main(void)
         if (event_type != kbd_ACTION_NOP) {
             if (event_type == kbd_ACTION_KEY_DOWN) {
                 printf("%hu Pressed.\n", key_code);
+                if (sleep_disabled > 0) {
+                    sleep_disabled --;
+                    if (sleep_disabled == 0) printf("sleep enabled\n");
+                }
             } else {
                 printf("%hu Released.\n", key_code);
             }
         }
-        kbd_try_sleep_until_next_key_press();
+        if (!sleep_disabled) {
+            int_sleep();
+        }
     }
 }
