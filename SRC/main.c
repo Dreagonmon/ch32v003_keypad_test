@@ -2,6 +2,7 @@
 #include "keypad.h"
 #include "sysclock.h"
 #include "interrupt.h"
+#include "i2cslave.h"
 
 int main(void)
 {
@@ -14,6 +15,7 @@ int main(void)
     systick_init();
     int_init();
     kbd_init();
+    i2cs_init();
 
     uint8_t sleep_disabled = 2;
 
@@ -39,6 +41,7 @@ int main(void)
             }
         }
         if (!sleep_disabled) {
+            // sleep only after key pressed, allow debugger to attach at boot.
             int_sleep();
         }
     }

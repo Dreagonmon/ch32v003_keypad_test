@@ -45,6 +45,7 @@ SRC/sysclock.c \
 SRC/keypad.c \
 SRC/interrupt.c \
 SRC/ringbuf.c \
+SRC/i2cslave.c \
 SRC/main.c
 
 ASM_SOURCES = \
