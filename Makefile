@@ -41,6 +41,8 @@ Core/Peripheral/src/ch32v00x_spi.c \
 Core/Peripheral/src/ch32v00x_tim.c \
 Core/Peripheral/src/ch32v00x_usart.c \
 Core/Peripheral/src/ch32v00x_wwdg.c \
+SRC/sysclock.c \
+SRC/keypad.c \
 SRC/main.c
 
 ASM_SOURCES = \

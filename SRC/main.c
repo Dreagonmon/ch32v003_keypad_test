@@ -1,68 +1,35 @@
-/********************************** (C) COPYRIGHT *******************************
- * File Name          : main.c
- * Author             : WCH
- * Version            : V1.0.0
- * Date               : 2022/08/08
- * Description        : Main program body.
-*********************************************************************************
-* Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
-* Attention: This software (modified or not) and binary are used for 
-* microcontroller manufactured by Nanjing Qinheng Microelectronics.
-*******************************************************************************/
-
-/*
- *@Note
- GPIO routine:
- PD0 push-pull output.
-
-*/
-
 #include "debug.h"
+#include "keypad.h"
+#include "sysclock.h"
 
-/* Global define */
-
-/* Global Variable */
-
-/*********************************************************************
- * @fn      GPIO_Toggle_INIT
- *
- * @brief   Initializes GPIOA.0
- *
- * @return  none
- */
-void GPIO_Toggle_INIT(void)
-{
-    GPIO_InitTypeDef GPIO_InitStructure = {0};
-
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD, ENABLE);
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOD, &GPIO_InitStructure);
-}
-
-/*********************************************************************
- * @fn      main
- *
- * @brief   Main program.
- *
- * @return  none
- */
 int main(void)
 {
-    u8 i = 0;
-
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
     Delay_Init();
     USART_Printf_Init(115200);
     printf("SystemClk:%d\r\n", SystemCoreClock);
 
-    printf("GPIO Toggle TEST\r\n");
-    GPIO_Toggle_INIT();
+    printf("======== Keypad Toggle TEST ========\r\n");
+    kbd_init();
+    systick_init();
 
     while(1)
     {
-        Delay_Ms(250);
-        GPIO_WriteBit(GPIOD, GPIO_Pin_0, (i == 0) ? (i = Bit_SET) : (i = Bit_RESET));
+        int32_t t0;
+        int32_t t1;
+        t0 = ticks_us();
+        uint16_t event = kbd_scan();
+        t1 = ticks_us();
+        // printf("scan time: %d us\n", ticks_diff(t1, t0));
+        uint8_t event_type = (event >> 8) & 0xFF;
+        uint8_t key_code = event & 0xFF;
+        if (event_type != kbd_ACTION_NOP) {
+            if (event_type == kbd_ACTION_KEY_DOWN) {
+                printf("%hu Pressed.\n", key_code);
+            } else {
+                printf("%hu Released.\n", key_code);
+            }
+        }
+        kbd_try_sleep_until_next_key_press();
     }
 }
