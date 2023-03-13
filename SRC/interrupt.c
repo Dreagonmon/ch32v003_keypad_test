@@ -9,7 +9,6 @@ const uint32_t EXTI_Line_All = EXTI_Line0 | EXTI_Line1 | EXTI_Line2 |
 void EXTI7_0_IRQHandler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
 void EXTI7_0_IRQHandler(void)
 {
-    // printf("EXTI Wake_up\r\n");
     EXTI_ClearITPendingBit(EXTI_Line_All);
 }
 

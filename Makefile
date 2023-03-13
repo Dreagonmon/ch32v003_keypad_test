@@ -44,8 +44,7 @@ Core/Peripheral/src/ch32v00x_wwdg.c \
 SRC/sysclock.c \
 SRC/keypad.c \
 SRC/interrupt.c \
-SRC/ringbuf.c \
-SRC/i2cslave.c \
+SRC/uart.c \
 SRC/main.c
 
 ASM_SOURCES = \
